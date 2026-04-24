@@ -63,15 +63,45 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Serve static files (test.html, test.css)
-  const staticFiles = { '/': 'test.html', '/test.html': 'test.html', '/test.css': 'test.css' };
-  const staticFile  = staticFiles[req.url];
+  // Serve static files (test.html, test.css, assets/*)
+  const mimeTypes = {
+    html: 'text/html',
+    css:  'text/css',
+    js:   'text/javascript',
+    png:  'image/png',
+    jpg:  'image/jpeg',
+    jpeg: 'image/jpeg',
+    ico:  'image/x-icon',
+    svg:  'image/svg+xml',
+  };
+
+  const staticMap = {
+    '/':            'test.html',
+    '/test.html':   'test.html',
+    '/test.css':    'test.css',
+    '/favicon.ico': 'assets/favicon.ico',
+  };
+  const staticFile = staticMap[req.url];
   if (staticFile) {
-    const mimeTypes = { html: 'text/html', css: 'text/css' };
     const ext  = staticFile.split('.').pop();
     const file = fs.readFileSync(path.join(__dirname, staticFile));
-    res.writeHead(200, { ...CORS_HEADERS, 'Content-Type': mimeTypes[ext] });
+    res.writeHead(200, { ...CORS_HEADERS, 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
     res.end(file);
+    return;
+  }
+
+  // Serve anything under /assets/ directly from the assets/ folder
+  if (req.url.startsWith('/assets/')) {
+    const filePath = path.join(__dirname, req.url.split('?')[0]);
+    if (fs.existsSync(filePath)) {
+      const ext  = filePath.split('.').pop().toLowerCase();
+      const file = fs.readFileSync(filePath);
+      res.writeHead(200, { ...CORS_HEADERS, 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+      res.end(file);
+    } else {
+      res.writeHead(404, CORS_HEADERS);
+      res.end('Not found');
+    }
     return;
   }
 
