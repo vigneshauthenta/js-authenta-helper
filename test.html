@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Authenta — Test Console</title>
+  <link rel="stylesheet" href="test.css" />
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Authenta — Test Console</h1>
+    <p>Served via local proxy — credentials are injected server-side from your .env file.</p>
+  </header>
+
+  <div class="card">
+    <div class="card-title">Model</div>
+
+    <!-- ── Model tabs ── -->
+    <div class="tabs">
+      <button class="tab active" data-model="DF-1">DF-1<br><small>Video Deepfake</small></button>
+      <button class="tab"        data-model="FI-1">FI-1<br><small>Face Intelligence</small></button>
+      <button class="tab"        data-model="FE-1">FE-1<br><small>Face Embedding</small></button>
+    </div>
+
+    <!-- ── DF-1 ── -->
+    <div class="panel visible" id="panel-DF-1">
+      <label style="margin-bottom:8px">Source Video</label>
+      <div class="dropzone" id="dz-df1">
+        <input type="file" id="file-df1" accept="video/*" />
+        <div class="dropzone-icon">🎬</div>
+        <div class="dropzone-label"><strong>Click or drag</strong> a video file</div>
+        <div class="dropzone-sub">MP4 · MOV · AVI</div>
+      </div>
+    </div>
+
+    <!-- ── FI-1 ── -->
+    <div class="panel" id="panel-FI-1">
+      <label style="margin-bottom:8px">Source File</label>
+      <div class="dropzone" id="dz-fi1-source">
+        <input type="file" id="file-fi1-source" accept="image/*,video/*" />
+        <div class="dropzone-icon">📁</div>
+        <div class="dropzone-label"><strong>Click or drag</strong> an image or video</div>
+        <div class="dropzone-sub">JPEG · PNG · MP4</div>
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="card-title">Analysis Flags</div>
+        <div class="toggles">
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Faceswap Check</div>
+              <div class="toggle-desc">Deepfake / faceswap detection — requires video</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="meta-faceswap" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Liveness Check</div>
+              <div class="toggle-desc">Anti-spoofing detection — image or video</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="meta-liveness" />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Face Similarity Check</div>
+              <div class="toggle-desc">Compare source against reference image</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="meta-similarity" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div id="reference-section" style="display:none; margin-top:16px">
+        <label style="margin-bottom:8px">Reference Image</label>
+        <div class="dropzone" id="dz-fi1-ref">
+          <input type="file" id="file-fi1-ref" accept="image/*" />
+          <div class="dropzone-icon">🖼️</div>
+          <div class="dropzone-label"><strong>Click or drag</strong> a reference face image</div>
+          <div class="dropzone-sub">JPEG · PNG — single frontal face</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FE-1 ── -->
+    <div class="panel" id="panel-FE-1">
+      <label style="margin-bottom:8px">Source Image</label>
+      <div class="dropzone" id="dz-fe1">
+        <input type="file" id="file-fe1" accept="image/*" />
+        <div class="dropzone-icon">🧑</div>
+        <div class="dropzone-label"><strong>Click or drag</strong> a face image</div>
+        <div class="dropzone-sub">JPEG · PNG — single clear face</div>
+      </div>
+    </div>
+
+    <button class="btn" id="analyseBtn">Analyse</button>
+
+    <!-- ── Progress ── -->
+    <div class="progress" id="progress">
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-steps">
+        <div class="step" id="step-register"><span class="step-dot"></span>Registering media</div>
+        <div class="step" id="step-upload">  <span class="step-dot"></span>Uploading to S3</div>
+        <div class="step" id="step-poll">    <span class="step-dot"></span>Processing — polling for result</div>
+        <div class="step" id="step-done">    <span class="step-dot"></span>Complete</div>
+      </div>
+    </div>
+
+    <!-- ── Error ── -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- ── Result ── -->
+    <div class="result-panel" id="resultPanel">
+      <hr />
+      <div class="result-header">
+        <span style="font-size:14px;font-weight:600;color:#fff">Result</span>
+        <span id="resultBadge" class="badge neutral"></span>
+        <span id="resultMid" style="font-size:11px;color:#4a5568;margin-left:auto"></span>
+      </div>
+
+      <div id="verdict-df1" style="display:none">
+        <div class="section-label">Identities</div>
+        <div class="verdict-grid" id="df1-grid"></div>
+      </div>
+
+      <div id="verdict-fi1" style="display:none">
+        <div class="verdict-grid" id="fi1-grid"></div>
+      </div>
+
+      <div id="verdict-fe1" style="display:none">
+        <div class="verdict-grid" id="fe1-grid"></div>
+      </div>
+
+      <div class="section-label" style="margin-top:14px">Raw JSON</div>
+      <div class="json-block" id="jsonOutput"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let activeModel = 'DF-1';
+
+  // ── Model tabs ───────────────────────────────────────────────────────────────
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('visible'));
+      tab.classList.add('active');
+      activeModel = tab.dataset.model;
+      document.getElementById(`panel-${activeModel}`).classList.add('visible');
+      resetResult();
+    });
+  });
+
+  // ── Dropzones ────────────────────────────────────────────────────────────────
+  function setupDropzone(inputId, dzId) {
+    const input = document.getElementById(inputId);
+    const dz    = document.getElementById(dzId);
+
+    input.addEventListener('change', () => {
+      const f = input.files[0];
+      if (!f) return;
+      dz.classList.add('has-file');
+      dz.querySelector('.dropzone-label').innerHTML = `<strong>${f.name}</strong>`;
+      dz.querySelector('.dropzone-sub').textContent = `${(f.size / 1024).toFixed(1)} KB`;
+    });
+
+    dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change'));
+    });
+  }
+
+  setupDropzone('file-df1',        'dz-df1');
+  setupDropzone('file-fi1-source', 'dz-fi1-source');
+  setupDropzone('file-fi1-ref',    'dz-fi1-ref');
+  setupDropzone('file-fe1',        'dz-fe1');
+
+  document.getElementById('meta-similarity').addEventListener('change', e => {
+    document.getElementById('reference-section').style.display = e.target.checked ? 'block' : 'none';
+  });
+
+  // ── Progress ─────────────────────────────────────────────────────────────────
+  const steps = ['step-register', 'step-upload', 'step-poll', 'step-done'];
+
+  function setStep(id, state) {
+    const el = document.getElementById(id);
+    el.classList.remove('done', 'active');
+    if (state) el.classList.add(state);
+  }
+
+  function showProgress() {
+    document.getElementById('progress').classList.add('visible');
+    steps.forEach(s => setStep(s, null));
+    document.getElementById('progressBar').style.width = '0%';
+  }
+
+  function setProgress(pct) {
+    document.getElementById('progressBar').style.width = pct + '%';
+  }
+
+  function hideProgress() {
+    document.getElementById('progress').classList.remove('visible');
+  }
+
+  function resetResult() {
+    document.getElementById('resultPanel').classList.remove('visible');
+    document.getElementById('errorBox').classList.remove('visible');
+    hideProgress();
+  }
+
+  // ── API — all calls use relative paths, proxy injects credentials ─────────────
+  async function apiFetch(method, path, body) {
+    const res = await fetch(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+    }
+    return res.status === 204 ? null : res.json();
+  }
+
+  // S3 presigned PUT — no auth headers, the URL is self-authenticating
+  async function uploadToS3(presignedUrl, fileBuffer, contentType) {
+    const res = await fetch(presignedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType },
+      body: fileBuffer,
+    });
+    if (!res.ok) throw new Error(`S3 upload failed: HTTP ${res.status}`);
+  }
+
+  // Poll until PROCESSED, then fetch result.json via proxy (avoids S3 CORS)
+  async function pollForResult(mid) {
+    const deadline = Date.now() + 5 * 60 * 1000;
+    while (Date.now() < deadline) {
+      const media = await apiFetch('GET', `/api/media/${mid}`);
+
+      if (media.status === 'PROCESSED') {
+        if (!media.resultURL) throw new Error('API returned PROCESSED but no resultURL');
+        const res = await fetch(`/s3-result?url=${encodeURIComponent(media.resultURL)}`);
+        if (!res.ok) throw new Error(`Could not fetch result.json: HTTP ${res.status}`);
+        return await res.json();
+      }
+
+      if (media.status === 'FAILED') throw new Error(`Processing failed — mid: ${mid}`);
+
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    throw new Error('Timed out — processing took longer than 5 minutes');
+  }
+
+  // ── Result renderers ─────────────────────────────────────────────────────────
+  function vbox(label, value) {
+    const cls     = value === null ? 'null' : value === true ? 'true' : value === false ? 'false' : 'score';
+    const display = value === null ? '—'    : value === true ? 'True' : value === false ? 'False' : value;
+    return `<div class="verdict-box">
+      <div class="vb-label">${label}</div>
+      <div class="vb-value ${cls}">${display}</div>
+    </div>`;
+  }
+
+  function renderDF1(result) {
+    document.getElementById('verdict-df1').style.display = 'block';
+    const hasFake = result.identityPredictions.some(i => i.isDeepFake);
+    const badge   = document.getElementById('resultBadge');
+    badge.className   = `badge ${hasFake ? 'fake' : 'real'}`;
+    badge.textContent = hasFake ? 'Deepfake Detected' : 'No Deepfake';
+
+    document.getElementById('df1-grid').innerHTML = result.identityPredictions.map(id => {
+      const box = result.boundingBoxes?.[id.identityId] ?? {};
+      return `<div class="verdict-box">
+        <div class="vb-label">Identity ${id.identityId}</div>
+        <div class="vb-value ${id.isDeepFake ? 'false' : 'true'}">${id.isDeepFake ? 'FAKE' : 'REAL'}</div>
+        <div style="font-size:11px;color:#4a5568;margin-top:4px">
+          conf: ${box.confidence != null ? (box.confidence * 100).toFixed(1) + '%' : '—'}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderFI1(result) {
+    document.getElementById('verdict-fi1').style.display = 'block';
+    const isFake = result.isDeepFake;
+    const badge  = document.getElementById('resultBadge');
+    badge.className   = `badge ${isFake === true ? 'fake' : isFake === false ? 'real' : 'neutral'}`;
+    badge.textContent = isFake === true ? 'Deepfake' : isFake === false ? 'Real' : 'Analysis Complete';
+
+    document.getElementById('fi1-grid').innerHTML =
+      vbox('Is Deepfake',  result.isDeepFake) +
+      vbox('Is Live',      result.isLiveness) +
+      vbox('Is Similar',   result.isSimilar) +
+      (result.similarityScore !== null ? vbox('Similarity', result.similarityScore?.toFixed(1) + '%') : '');
+  }
+
+  function renderFE1(result) {
+    document.getElementById('verdict-fe1').style.display = 'block';
+    const badge = document.getElementById('resultBadge');
+    badge.className   = 'badge neutral';
+    badge.textContent = 'Embedding Ready';
+    const len     = result.faceVector?.length ?? 0;
+    const preview = result.faceVector?.slice(0, 4).map(v => v.toFixed(4)).join(', ') + ', …';
+    document.getElementById('fe1-grid').innerHTML = `
+      <div class="verdict-box">
+        <div class="vb-label">Dimensions</div>
+        <div class="vb-value score">${len}</div>
+      </div>
+      <div class="verdict-box" style="grid-column:span 2">
+        <div class="vb-label">Preview (first 4 values)</div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:6px;font-family:monospace">[${preview}]</div>
+      </div>`;
+  }
+
+  // ── Analyse ──────────────────────────────────────────────────────────────────
+  document.getElementById('analyseBtn').addEventListener('click', async () => {
+    resetResult();
+
+    const btn      = document.getElementById('analyseBtn');
+    const errorBox = document.getElementById('errorBox');
+
+    const fileInputMap = { 'DF-1': 'file-df1', 'FI-1': 'file-fi1-source', 'FE-1': 'file-fe1' };
+    const sourceFile   = document.getElementById(fileInputMap[activeModel]).files[0];
+
+    if (!sourceFile) {
+      errorBox.textContent = 'Please select a source file.';
+      errorBox.classList.add('visible');
+      return;
+    }
+
+    btn.disabled = true;
+    showProgress();
+
+    try {
+      // Step 1 — Register
+      setStep('step-register', 'active');
+      setProgress(10);
+
+      const body = {
+        name:        sourceFile.name,
+        contentType: sourceFile.type,
+        size:        sourceFile.size,
+        modelType:   activeModel,
+      };
+
+      const { mid, uploadUrl, referenceUploadUrl } = await apiFetch('POST', '/api/media', body);
+
+      setStep('step-register', 'done');
+      setProgress(30);
+
+      // Step 2 — Upload source to S3
+      setStep('step-upload', 'active');
+
+      await uploadToS3(uploadUrl, await sourceFile.arrayBuffer(), sourceFile.type);
+
+      // FI-1 with similarity check — upload reference to referenceUploadUrl
+      if (activeModel === 'FI-1' && document.getElementById('meta-similarity').checked) {
+        const refFile = document.getElementById('file-fi1-ref').files[0];
+        if (refFile && referenceUploadUrl) {
+          await uploadToS3(referenceUploadUrl, await refFile.arrayBuffer(), refFile.type);
+        }
+      }
+
+      setStep('step-upload', 'done');
+      setProgress(55);
+
+      // Step 3 — Poll + fetch result
+      setStep('step-poll', 'active');
+      setProgress(65);
+
+      const result = await pollForResult(mid);
+
+      setStep('step-poll', 'done');
+      setStep('step-done', 'done');
+      setProgress(100);
+      setTimeout(hideProgress, 600);
+
+      // Render
+      document.getElementById('resultMid').textContent = `mid: ${mid}`;
+      document.getElementById('verdict-df1').style.display = 'none';
+      document.getElementById('verdict-fi1').style.display = 'none';
+      document.getElementById('verdict-fe1').style.display = 'none';
+      document.getElementById('resultPanel').classList.add('visible');
+
+      if (activeModel === 'DF-1') renderDF1(result);
+      if (activeModel === 'FI-1') renderFI1(result);
+      if (activeModel === 'FE-1') renderFE1(result);
+
+      document.getElementById('jsonOutput').textContent = JSON.stringify(result, null, 2);
+
+    } catch (err) {
+      hideProgress();
+      errorBox.textContent = err.message;
+      errorBox.classList.add('visible');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "scripts": {
+    "start": "node proxy.js"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0"
+  }
+}
