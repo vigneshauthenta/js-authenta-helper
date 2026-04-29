@@ -63,9 +63,16 @@ export class AuthentaClient {
   getMedia(mid)      { return this.#request('GET',    `/api/media/${mid}`); }
   deleteMedia(mid)   { return this.#request('DELETE', `/api/media/${mid}`); }
 
-  async upload({ name, fileBuffer, contentType, modelType, referenceBuffer, referenceContentType = 'image/jpeg' }) {
+  /**
+   * @param {{ name: string, fileBuffer: Buffer|ArrayBuffer, contentType: string,
+   *           modelType: string, referenceBuffer?: Buffer|ArrayBuffer,
+   *           referenceContentType?: string,
+   *           metadata?: { isSingleFace: boolean, faceswapCheck: boolean,
+   *                        livenessCheck: boolean, faceSimilarityCheck: boolean } }} params
+   */
+  async upload({ name, fileBuffer, contentType, modelType, referenceBuffer, referenceContentType = 'image/jpeg', metadata }) {
     const size = fileBuffer instanceof Buffer ? fileBuffer.length : fileBuffer.byteLength;
-    const reg  = await this.registerMedia({ name, contentType, size, modelType });
+    const reg  = await this.registerMedia({ name, contentType, size, modelType, metadata });
 
     await this.uploadToS3(reg.uploadUrl, fileBuffer, contentType);
 

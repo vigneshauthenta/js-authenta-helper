@@ -207,6 +207,47 @@
     document.getElementById('reference-section').style.display = e.target.checked ? 'block' : 'none';
   });
 
+  function resetDropzone(inputId, dzId, defaultLabel, defaultSub) {
+    const input = document.getElementById(inputId);
+    const dz    = document.getElementById(dzId);
+    input.value = '';
+    dz.classList.remove('has-file');
+    dz.querySelector('.dropzone-label').innerHTML = defaultLabel;
+    dz.querySelector('.dropzone-sub').textContent  = defaultSub;
+  }
+
+  function updateFI1Accept() {
+    const faceswapOn = document.getElementById('meta-faceswap').checked;
+    const input      = document.getElementById('file-fi1-source');
+    const sub        = document.querySelector('#dz-fi1-source .dropzone-sub');
+
+    if (faceswapOn) {
+      input.accept = 'video/*';
+      sub.textContent = 'MP4 — video required for faceswap check';
+      // Clear if the already-loaded file isn't a video
+      const loaded = input.files[0];
+      if (loaded && !loaded.type.startsWith('video/')) {
+        resetDropzone('file-fi1-source', 'dz-fi1-source', '<strong>Click or drag</strong> a video file', 'MP4 — video required for faceswap check');
+      }
+    } else {
+      input.accept = 'image/*,video/*';
+      sub.textContent = 'JPEG · PNG · MP4';
+    }
+  }
+
+  // Faceswap and liveness are mutually exclusive
+  document.getElementById('meta-faceswap').addEventListener('change', function () {
+    if (this.checked) document.getElementById('meta-liveness').checked = false;
+    updateFI1Accept();
+  });
+
+  document.getElementById('meta-liveness').addEventListener('change', function () {
+    if (this.checked) document.getElementById('meta-faceswap').checked = false;
+    updateFI1Accept();
+  });
+
+  updateFI1Accept();
+
   // ── Progress ─────────────────────────────────────────────────────────────────
   const steps = ['step-register', 'step-upload', 'step-poll', 'step-done'];
 
@@ -320,7 +361,7 @@
       vbox('Is Deepfake',  result.isDeepFake) +
       vbox('Is Live',      result.isLiveness) +
       vbox('Is Similar',   result.isSimilar) +
-      (result.similarityScore !== null ? vbox('Similarity', result.similarityScore?.toFixed(1) + '%') : '');
+      (result.similarityScore != null ? vbox('Similarity', Number(result.similarityScore).toFixed(1) + '%') : '');
   }
 
   function renderFE1(result) {
@@ -371,6 +412,15 @@
         size:        sourceFile.size,
         modelType:   activeModel,
       };
+
+      if (activeModel === 'FI-1') {
+        body.metadata = {
+          isSingleFace:        true,
+          faceswapCheck:       document.getElementById('meta-faceswap').checked,
+          livenessCheck:       document.getElementById('meta-liveness').checked,
+          faceSimilarityCheck: document.getElementById('meta-similarity').checked,
+        };
+      }
 
       const { mid, uploadUrl, referenceUploadUrl } = await apiFetch('POST', '/api/media', body);
 

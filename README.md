@@ -7,6 +7,43 @@ Client code and a browser test console for the Authenta deepfake analysis API.
 
 ---
 
+## FI-1 — Metadata flags ✓ resolved
+
+> **Issue (resolved):** Earlier versions of this client omitted the `metadata` object from the
+> `POST /api/media` request for FI-1, causing the API to respond with **"unsupported media format"**.
+> The current client resolves this — `metadata` is now always included automatically.
+
+Unlike DF-1 and FE-1, FI-1 requires a `metadata` block so the server knows which checks to run before it validates the source file type. The `FI1Metadata` interface is built into `RegisterMediaParams` and `UploadParams` and is forwarded in the registration request without any extra work from the caller.
+
+```ts
+// Pass metadata when calling upload() or uploadAndWait()
+const { mid, result } = await authenta.uploadAndWait<FI1Result>({
+  name, fileBuffer, contentType,
+  modelType: 'FI-1',
+  metadata: {
+    isSingleFace:        true,  // always true for FI-1
+    faceswapCheck:       false, // true = video only
+    livenessCheck:       true,  // true = image or video
+    faceSimilarityCheck: false, // true = requires referenceBuffer
+  },
+});
+```
+
+### Flag rules
+
+| Flag | Accepted source | Notes |
+|------|----------------|-------|
+| `faceswapCheck: true` | `video/*` only | Passing an image throws "unsupported media format" |
+| `livenessCheck: true` | `image/*` or `video/*` | |
+| `faceSimilarityCheck: true` | `image/*` or `video/*` | Requires `referenceBuffer` + `referenceUploadUrl` upload |
+| `isSingleFace` | — | Always `true` — FI-1 is single-face mode only |
+
+> **`faceswapCheck` and `livenessCheck` are mutually exclusive.**
+> `faceswapCheck` forces a video-only pipeline; enabling both simultaneously causes a conflict.
+> Set one to `true` and the other to `false`.
+
+---
+
 ## Folder Structure
 
 ```

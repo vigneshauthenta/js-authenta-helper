@@ -165,9 +165,10 @@ function FI1View({ result }: { result: FI1Result }) {
       <h3>Face Intelligence</h3>
       {rows.map(([label, value]) => (
         <p key={label}>
-          {label}: {value === null ? <span style={{ color: '#999' }}>not checked</span>
-                  : typeof value === 'number' ? <strong>{value.toFixed(1)}</strong>
-                  : <strong style={{ color: value ? 'green' : 'red' }}>{value ? 'YES' : 'NO'}</strong>}
+          {label}: {value == null ? <span style={{ color: '#999' }}>not checked</span>
+                  : typeof value === 'number' || typeof value === 'string' && !isNaN(Number(value))
+                    ? <strong>{Number(value).toFixed(1)}</strong>
+                    : <strong style={{ color: value ? 'green' : 'red' }}>{value ? 'YES' : 'NO'}</strong>}
         </p>
       ))}
     </div>

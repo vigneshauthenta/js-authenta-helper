@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthentaClient, ModelType, DF1Result, FI1Result, FE1Result, ModelResult } from '@/lib/authenta-client';
+import { AuthentaClient, ModelType, FI1Metadata, ModelResult } from '@/lib/authenta-client';
 
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
 
-    const file      = form.get('file')      as File | null;
-    const modelType = form.get('modelType') as ModelType | null;
+    const file      = form.get('file')           as File | null;
+    const modelType = form.get('modelType')      as ModelType | null;
     const refImage  = form.get('referenceImage') as File | null;
 
     if (!file)      return NextResponse.json({ error: 'Missing file'      }, { status: 400 });
@@ -20,10 +20,22 @@ export async function POST(req: NextRequest) {
 
     let referenceBuffer: ArrayBuffer | undefined;
     let referenceContentType: string | undefined;
+    let metadata: FI1Metadata | undefined;
 
-    if (modelType === 'FI-1' && refImage) {
-      referenceBuffer      = await refImage.arrayBuffer();
-      referenceContentType = refImage.type || 'image/jpeg';
+    if (modelType === 'FI-1') {
+      const flag = (key: string) => form.get(key) === 'true';
+
+      metadata = {
+        isSingleFace:        true,
+        faceswapCheck:       flag('faceswapCheck'),
+        livenessCheck:       flag('livenessCheck'),
+        faceSimilarityCheck: flag('faceSimilarityCheck'),
+      };
+
+      if (refImage && metadata.faceSimilarityCheck) {
+        referenceBuffer      = await refImage.arrayBuffer();
+        referenceContentType = refImage.type || 'image/jpeg';
+      }
     }
 
     const authenta = new AuthentaClient();
@@ -35,6 +47,7 @@ export async function POST(req: NextRequest) {
       modelType,
       referenceBuffer,
       referenceContentType,
+      metadata,
     });
 
     return NextResponse.json({ mid, result });

@@ -1,2 +1,6 @@
 node_modules/
 /.env
+nextjs/package-lock.json
+nextjs/package.json
+nextjs/tsconfig.json
+nextjs/next.d.ts

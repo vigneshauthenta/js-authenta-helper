@@ -11,11 +11,20 @@ export interface AuthentaClientConfig {
   clientSecret?: string;
 }
 
+/** FI-1 analysis flags — controls which checks the model runs. */
+export interface FI1Metadata {
+  isSingleFace:        boolean; // always true for FI-1
+  faceswapCheck:       boolean; // requires video source
+  livenessCheck:       boolean; // image or video source
+  faceSimilarityCheck: boolean; // requires referenceImage
+}
+
 export interface RegisterMediaParams {
-  name: string;
+  name:        string;
   contentType: string;
-  size: number;
-  modelType: ModelType;
+  size:        number;
+  modelType:   ModelType;
+  metadata?:   FI1Metadata;   // FI-1 only
 }
 
 export interface RegisterMediaResponse {
@@ -30,12 +39,13 @@ export interface RegisterMediaResponse {
 }
 
 export interface UploadParams {
-  name: string;
-  fileBuffer: Buffer | ArrayBuffer;
-  contentType: string;
-  modelType: ModelType;
-  referenceBuffer?: Buffer | ArrayBuffer;   // FI-1 only
-  referenceContentType?: string;            // defaults to 'image/jpeg'
+  name:                  string;
+  fileBuffer:            Buffer | ArrayBuffer;
+  contentType:           string;
+  modelType:             ModelType;
+  referenceBuffer?:      Buffer | ArrayBuffer; // FI-1 + faceSimilarityCheck only
+  referenceContentType?: string;               // defaults to 'image/jpeg'
+  metadata?:             FI1Metadata;          // FI-1 only
 }
 
 export interface PollOptions {
@@ -198,10 +208,10 @@ export class AuthentaClient {
 
   async upload({
     name, fileBuffer, contentType, modelType,
-    referenceBuffer, referenceContentType = 'image/jpeg',
+    referenceBuffer, referenceContentType = 'image/jpeg', metadata,
   }: UploadParams): Promise<string> {
     const size = fileBuffer instanceof Buffer ? fileBuffer.length : fileBuffer.byteLength;
-    const reg  = await this.registerMedia({ name, contentType, size, modelType });
+    const reg  = await this.registerMedia({ name, contentType, size, modelType, metadata });
 
     await this.uploadToS3(reg.uploadUrl, fileBuffer, contentType);
 
